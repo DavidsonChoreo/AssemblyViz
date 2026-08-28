@@ -1,0 +1,9 @@
+.git
+.github
+reports
+test
+conftest.py
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc

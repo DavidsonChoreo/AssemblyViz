@@ -1,2 +1,5 @@
-fastapi
-uvicorn
+# Pinned so a container build is reproducible: an unpinned build resolves to
+# whatever is current that day, which makes "it worked yesterday" unfalsifiable.
+# Dependabot raises these weekly (see .github/dependabot.yml).
+fastapi==0.141.1
+uvicorn==0.52.4
