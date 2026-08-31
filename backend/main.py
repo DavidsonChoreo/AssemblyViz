@@ -14,9 +14,11 @@ CORS origins are controlled via the ALLOWED_ORIGINS environment variable
 
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from hymn.parser import Parser as HymnParser
 from hymn.machine import MachineState
@@ -35,26 +37,55 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# The simulator is CPU-bound and every endpoint accepts user-submitted input, so
+# the cheapest way to burn server time is a very large body. Source length is
+# capped per-field below, but a limit here rejects an oversized request before
+# anything parses it — including the HYMN memory array, which the handler
+# validates only after Pydantic has already materialised the whole list.
+MAX_BODY_BYTES = 256 * 1024
+
+
+@app.middleware("http")
+async def limit_body_size(request: Request, call_next):
+    length = request.headers.get("content-length")
+    if length is not None and int(length) > MAX_BODY_BYTES:
+        return JSONResponse(
+            status_code=413,
+            content={"detail": f"Request body exceeds {MAX_BODY_BYTES} bytes"},
+        )
+    return await call_next(request)
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
 # ── Request models that define what JSON must send ────────────────────────────
 
+# Source is capped here rather than left to the body-size limit alone so the
+# caller gets a specific 422 naming the field, instead of a bare 413. 64 KiB is
+# far beyond any plausible teaching example; HYMN addresses 32 bytes of memory
+# and RISC-V programs here are tens of lines.
+MAX_SOURCE_CHARS = 64 * 1024
+
+
 class HymnAssembleRequest(BaseModel):
-    source: str
+    source: str = Field(max_length=MAX_SOURCE_CHARS)
 
 class HymnStepRequest(BaseModel):
-    memory: list[int]   # full 32-byte snapshot
+    # Exactly 32: the HYMN machine has MEMORY_SIZE = 32 bytes. hymn_step also
+    # checks this, but doing it in the model rejects the request during
+    # validation rather than after the list has been built.
+    memory: list[int] = Field(min_length=32, max_length=32)
     pc: int
     ac: int
     io_input: int = 0   # value supplied by READ pseudo-op
 
 class RiscvAssembleRequest(BaseModel):
-    source: str
+    source: str = Field(max_length=MAX_SOURCE_CHARS)
 
 class RiscvStepRequest(BaseModel):
-    source: str
+    source: str = Field(max_length=MAX_SOURCE_CHARS)
     step_count: int  # number of machine words to execute
 
 # ── HYMN helpers ──────────────────────────────────────────────────────────────
@@ -277,3 +308,17 @@ def riscv_step(req: RiscvStepRequest):
         "registers":   snap["registers"],
         "io_output":   snap["io_output"][prev_output_len:],
     }
+
+
+# ── Static SPA ────────────────────────────────────────────────────────────────
+# Mounted LAST so the /api routes above win. html=True serves index.html for
+# unknown paths, which a client-side router needs.
+#
+# Absent in local development, where the SPA is served by `npm run dev` and Vite
+# proxies /api here — so this mount is skipped rather than failing to start.
+_STATIC_DIR = os.getenv(
+    "STATIC_DIR",
+    os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"),
+)
+if os.path.isdir(_STATIC_DIR):
+    app.mount("/", StaticFiles(directory=_STATIC_DIR, html=True), name="spa")

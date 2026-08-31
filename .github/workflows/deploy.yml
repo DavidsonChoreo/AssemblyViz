@@ -1,0 +1,100 @@
+# Build and deploy AssemblyViz to Azure Container Apps.
+#
+# No stored credentials: this authenticates to Azure by GitHub OIDC federation
+# to dc-choreo-assemblyviz-deploy, whose trust is scoped to this repository by
+# immutable numeric id. The three AZURE_* values are repository VARIABLES, not
+# secrets — a client id, a tenant id and a subscription id are all public
+# identifiers, and storing them as secrets would only make them harder to read.
+#
+# Hosting is defined in DavidsonCollege/choreo-hosting-monorepo under
+# apps/assemblyviz/. Nothing here creates infrastructure.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  id-token: write   # required for azure/login OIDC
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: dc-assemblyviz-rg
+  REGISTRY: dcassemblyvizacr
+  CONTAINER_APP: dc-assemblyviz-app
+  IMAGE_REPO: assemblyviz
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: pip install -r backend/requirements-dev.txt
+
+      - name: Tests
+        run: pytest -q
+
+  # Proves the image builds before merge, without pushing anything. A PR that
+  # cannot build should not reach main, and finding that out at deploy time
+  # means finding it out on main.
+  build-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build image (no push)
+        run: docker build -f Containerfile -t assemblyviz:pr .
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3.0.2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Builds inside ACR rather than on the runner, so the image never crosses
+      # the network and the runner needs no registry credential.
+      - name: Build image in ACR
+        run: |
+          az acr build \
+            --registry "$REGISTRY" \
+            --image "$IMAGE_REPO:${GITHUB_SHA}" \
+            --file Containerfile .
+
+      # Deploy by DIGEST, not tag. A tag can be moved; a digest names exactly the
+      # bytes that were tested, so what runs is what this commit built.
+      - name: Deploy by digest
+        run: |
+          DIGEST=$(az acr repository show \
+            --name "$REGISTRY" \
+            --image "$IMAGE_REPO:${GITHUB_SHA}" \
+            --query digest -o tsv)
+          echo "digest: $DIGEST"
+          az containerapp update \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CONTAINER_APP" \
+            --image "${REGISTRY}.azurecr.io/${IMAGE_REPO}@${DIGEST}"
+
+      - name: Report URL
+        run: |
+          FQDN=$(az containerapp show -g "$RESOURCE_GROUP" -n "$CONTAINER_APP" \
+                   --query properties.configuration.ingress.fqdn -o tsv)
+          echo "Deployed: https://${FQDN}" >> "$GITHUB_STEP_SUMMARY"
