@@ -2,4 +2,4 @@
 # whatever is current that day, which makes "it worked yesterday" unfalsifiable.
 # Dependabot raises these weekly (see .github/dependabot.yml).
 fastapi==0.141.1
-uvicorn==0.52.4
+uvicorn==0.53.0
