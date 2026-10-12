@@ -1,0 +1,46 @@
+passport: 1
+app: assemblyviz
+purpose: >
+  A step-by-step visualizer for assembly code on the HYMN (8-bit) and RISC-V
+  RV32I (32-bit) architectures, used to teach Computer Organization. Students
+  write or load a program, then step through it and watch the registers and
+  memory change. It replaces an unmaintained teaching tool from around 2005.
+app_owners:
+  - { name: Nikita Aleksii, email: nialeksii@davidson.edu }
+  - { name: Maria Fajardo, email: mafajardo@davidson.edu }
+  - { name: Robby Votta, email: rovotta@davidson.edu }
+  - { name: Yurdanur Yolcu, email: yuyolcu@davidson.edu }
+business_owner: { name: Raghu Ramanujan, email: raramanujan@davidson.edu }
+incident_contact: { name: Raghu Ramanujan, email: raramanujan@davidson.edu }
+department: Mathematics and Computer Science
+custody: >
+  If the app owners leave, the Mathematics and Computer Science department names
+  a successor within 30 days. Otherwise the app sunsets at the next review date.
+created: "2026-01-30"
+review: "2027-08-28"
+profile:
+  door: interact
+  driver: person
+  audience: campus
+  clearance: true
+  data_classification: public
+  source: none
+  writes: none
+  consumption: web
+  tier: container
+audience_scope: internal
+brand: unbranded
+indexable: false
+custom_domain: null
+license: MIT
+road: non-paved
+stack: other
+scaffolded_with: "@davidson/create-choreo-app@1.0.0"
+build_environment: host-node
+built_with: unknown
+risk_tier: low
+regulations: []
+roles: [viewer]
+integrations: []
+llm: null
+retention: []

@@ -1,5 +1,6 @@
-# Actions here are SHA-pinned, and a pin without Dependabot is a pin that goes
-# stale. Grouped so bumps arrive as one pull request rather than several.
+# Actions here are SHA-pinned and the Containerfile's base images are
+# digest-pinned, and a pin without Dependabot is a pin that goes stale.
+# Grouped so bumps arrive as one pull request rather than several.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -22,4 +23,11 @@ updates:
       interval: weekly
     groups:
       npm:
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      images:
         patterns: ["*"]

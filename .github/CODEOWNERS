@@ -1,0 +1,7 @@
+# Platform Engineering approves every change to the passport and owns the
+# governance files (Choreo pipeline decisions 15 and 33). The hosted-apps
+# ruleset requires a code owner's review on these paths.
+/PASSPORT.yml        @DavidsonChoreo/platform-engineering
+/AGENTS.md           @DavidsonChoreo/platform-engineering
+/CLAUDE.md           @DavidsonChoreo/platform-engineering
+/.github/CODEOWNERS  @DavidsonChoreo/platform-engineering
