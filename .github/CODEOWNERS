@@ -5,3 +5,4 @@
 /AGENTS.md           @DavidsonChoreo/platform-engineering
 /CLAUDE.md           @DavidsonChoreo/platform-engineering
 /.github/CODEOWNERS  @DavidsonChoreo/platform-engineering
+/.github/workflows/  @DavidsonChoreo/platform-engineering
